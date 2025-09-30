@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relatório para o Conselho de Classe</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #f4f4f4;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    form {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    label {
+      display: block;
+      margin: 10px 0 5px;
+      font-weight: bold;
+    }
+    select, textarea, input[type="submit"] {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    textarea {
+      height: 100px;
+    }
+    input[type="submit"] {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    input[type="submit"]:hover {
+      background-color: #45a049;
+    }
+    #status {
+      margin-top: 10px;
+      font-weight: bold;
+      text-align: center;
+    }
+    .error {
+      color: red;
+    }
+    .success {
+      color: green;
+    }
+  </style>
+</head>
+<body>
+  <h1>Relatório para o Conselho de Classe - SEMED SGO 1.0.0</h1>
+  <form id="relatorioForm">
+    <label for="turma">Turma:</label>
+    <select id="turma" name="turma" required>
+      <option value="">-- Selecione a Turma --</option>
+    </select>
+
+    <label for="professor">Professor(a):</label>
+    <select id="professor" name="professor" required>
+      <option value="">-- Selecione o Professor --</option>
+    </select>
+
+    <label for="materia">Matéria:</label>
+    <select id="materia" name="materia" required>
+      <option value="">-- Selecione a Matéria --</option>
+    </select>
+
+    <label for="aluno">Aluno(a) Focado (Selecione na Lista):</label>
+    <select id="aluno" name="aluno" required>
+      <option value="">-- Selecione o Aluno --</option>
+    </select>
+
+    <label for="observacoes">Observações sobre o Aluno:</label>
+    <textarea id="observacoes" name="observacoes" placeholder="Digite as observações sobre o aluno"></textarea>
+
+    <label for="comportamento">Observação do Comportamento em Sala:</label>
+    <textarea id="comportamento" name="comportamento" placeholder="Digite as observações sobre o comportamento"></textarea>
+
+    <input type="submit" value="Enviar Relatório para o Conselho">
+  </form>
+  <div id="status"></div>
+
+  <script>
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxkZsM8qdUzRPpdGgpi4ZwzjEe3R2Z1hlgSiWf_PY56Y9o_poaUWVmpOD6d020XBKzk_Q/exec';
+
+    // Função para carregar dados iniciais (turmas e alunos)
+    async function loadInitialData() {
+      try {
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+          },
+          redirect: 'follow'
+        });
+        const result = await response.json();
+        if (result.success) {
+          const { uniqueTurmas, listaAlunos, initialTurma, initialProfessor, initialMateria } = result.data;
+
+          // Preencher turmas
+          const turmaSelect = document.getElementById('turma');
+          uniqueTurmas.forEach(turma => {
+            const option = document.createElement('option');
+            option.value = turma;
+            option.textContent = turma;
+            turmaSelect.appendChild(option);
+          });
+
+          // Preencher alunos
+          const alunoSelect = document.getElementById('aluno');
+          listaAlunos.forEach(aluno => {
+            const option = document.createElement('option');
+            option.value = aluno;
+            option.textContent = aluno;
+            alunoSelect.appendChild(option);
+          });
+
+          // Pré-selecionar valores iniciais
+          if (initialTurma) {
+            turmaSelect.value = initialTurma;
+            updateProfessores(initialTurma, initialProfessor, initialMateria);
+          }
+        } else {
+          document.getElementById('status').className = 'error';
+          document.getElementById('status').textContent = 'Erro ao carregar dados: ' + result.error;
+        }
+      } catch (error) {
+        document.getElementById('status').className = 'error';
+        document.getElementById('status').textContent = 'Erro ao carregar dados: ' + error.message;
+      }
+    }
+
+    // Função para atualizar professores e matérias com base na turma selecionada
+    async function updateProfessores(turma, initialProfessor = '', initialMateria = '') {
+      try {
+        const response = await fetch(`${APPS_SCRIPT_URL}?action=getFilteredProfessores&turma=${encodeURIComponent(turma)}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+          },
+          redirect: 'follow'
+        });
+        const result = await response.json();
+        if (result.success) {
+          const professorSelect = document.getElementById('professor');
+          const materiaSelect = document.getElementById('materia');
+          professorSelect.innerHTML = '<option value="">-- Selecione o Professor --</option>';
+          materiaSelect.innerHTML = '<option value="">-- Selecione a Matéria --</option>';
+
+          result.data.forEach(prof => {
+            const profOption = document.createElement('option');
+            profOption.value = prof.professor;
+            profOption.textContent = prof.professor;
+            professorSelect.appendChild(profOption);
+
+            const matOption = document.createElement('option');
+            matOption.value = prof.materia;
+            matOption.textContent = prof.materia;
+            materiaSelect.appendChild(matOption);
+          });
+
+          if (initialProfessor && initialMateria) {
+            professorSelect.value = initialProfessor;
+            materiaSelect.value = initialMateria;
+          }
+        } else {
+          document.getElementById('status').className = 'error';
+          document.getElementById('status').textContent = 'Erro ao carregar professores: ' + result.error;
+        }
+      } catch (error) {
+        document.getElementById('status').className = 'error';
+        document.getElementById('status').textContent = 'Erro ao carregar professores: ' + error.message;
+      }
+    }
+
+    // Evento para atualizar professores quando a turma mudar
+    document.getElementById('turma').addEventListener('change', function() {
+      updateProfessores(this.value);
+    });
+
+    // Enviar formulário
+    document.getElementById('relatorioForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const formData = new FormData(this);
+      const data = {
+        turma: formData.get('turma'),
+        professor: formData.get('professor'),
+        materia: formData.get('materia'),
+        aluno: formData.get('aluno'),
+        observacoes: formData.get('observacoes'),
+        comportamento: formData.get('comportamento')
+      };
+
+      try {
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          body: JSON.stringify(data),
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+          },
+          redirect: 'follow'
+        });
+        const result = await response.json();
+        const statusDiv = document.getElementById('status');
+        if (result.success) {
+          statusDiv.className = 'success';
+          statusDiv.textContent = result.message;
+          this.reset();
+        } else {
+          statusDiv.className = 'error';
+          statusDiv.textContent = 'Erro: ' + result.error;
+        }
+      } catch (error) {
+        document.getElementById('status').className = 'error';
+        document.getElementById('status').textContent = 'Erro ao enviar: ' + error.message;
+      }
+    });
+
+    // Carregar dados iniciais ao abrir a página
+    window.onload = loadInitialData;
+  </script>
+</body>
+</html>
