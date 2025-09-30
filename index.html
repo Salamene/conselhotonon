@@ -93,19 +93,15 @@
   <div id="status"></div>
 
   <script>
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxkZsM8qdUzRPpdGgpi4ZwzjEe3R2Z1hlgSiWf_PY56Y9o_poaUWVmpOD6d020XBKzk_Q/exec';
+    // URL do próprio Google Apps Script
+    const APPS_SCRIPT_URL = '<?= ScriptApp.getService().getUrl() ?>';
 
-    // Função para carregar dados iniciais (turmas e alunos)
+    // Função para carregar dados iniciais
     async function loadInitialData() {
       try {
-        const response = await fetch(APPS_SCRIPT_URL, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'text/plain;charset=utf-8'
-          },
-          redirect: 'follow'
-        });
+        const response = await fetch(`${APPS_SCRIPT_URL}?action=loadInitialData`);
         const result = await response.json();
+        
         if (result.success) {
           const { uniqueTurmas, listaAlunos, initialTurma, initialProfessor, initialMateria } = result.data;
 
@@ -133,29 +129,23 @@
             await updateProfessores(initialTurma, initialProfessor, initialMateria);
           }
         } else {
-          document.getElementById('status').className = 'error';
-          document.getElementById('status').textContent = 'Erro ao carregar dados: ' + result.error;
+          showStatus('Erro ao carregar dados: ' + result.error, 'error');
         }
       } catch (error) {
-        document.getElementById('status').className = 'error';
-        document.getElementById('status').textContent = 'Erro ao carregar dados: ' + error.message;
+        showStatus('Erro ao carregar dados: ' + error.message, 'error');
       }
     }
 
-    // Função para atualizar professores e matérias com base na turma selecionada
+    // Função para atualizar professores
     async function updateProfessores(turma, initialProfessor = '', initialMateria = '') {
       try {
-        const response = await fetch(`${APPS_SCRIPT_URL}?action=getFilteredProfessores&turma=${encodeURIComponent(turma)}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'text/plain;charset=utf-8'
-          },
-          redirect: 'follow'
-        });
+        const response = await fetch(`${APPS_SCRIPT_URL}?action=getFilteredProfessores&turma=${encodeURIComponent(turma)}`);
         const result = await response.json();
+        
         if (result.success) {
           const professorSelect = document.getElementById('professor');
           const materiaSelect = document.getElementById('materia');
+          
           professorSelect.innerHTML = '<option value="">-- Selecione o Professor --</option>';
           materiaSelect.innerHTML = '<option value="">-- Selecione a Matéria --</option>';
 
@@ -176,12 +166,10 @@
             materiaSelect.value = initialMateria;
           }
         } else {
-          document.getElementById('status').className = 'error';
-          document.getElementById('status').textContent = 'Erro ao carregar professores: ' + result.error;
+          showStatus('Erro ao carregar professores: ' + result.error, 'error');
         }
       } catch (error) {
-        document.getElementById('status').className = 'error';
-        document.getElementById('status').textContent = 'Erro ao carregar professores: ' + error.message;
+        showStatus('Erro ao carregar professores: ' + error.message, 'error');
       }
     }
 
@@ -206,27 +194,27 @@
       try {
         const response = await fetch(APPS_SCRIPT_URL, {
           method: 'POST',
-          body: JSON.stringify(data),
-          headers: {
-            'Content-Type': 'text/plain;charset=utf-8'
-          },
-          redirect: 'follow'
+          body: JSON.stringify(data)
         });
+        
         const result = await response.json();
-        const statusDiv = document.getElementById('status');
         if (result.success) {
-          statusDiv.className = 'success';
-          statusDiv.textContent = result.message;
+          showStatus(result.message, 'success');
           this.reset();
         } else {
-          statusDiv.className = 'error';
-          statusDiv.textContent = 'Erro: ' + result.error;
+          showStatus('Erro: ' + result.error, 'error');
         }
       } catch (error) {
-        document.getElementById('status').className = 'error';
-        document.getElementById('status').textContent = 'Erro ao enviar: ' + error.message;
+        showStatus('Erro ao enviar: ' + error.message, 'error');
       }
     });
+
+    // Função auxiliar para mostrar status
+    function showStatus(message, type) {
+      const statusDiv = document.getElementById('status');
+      statusDiv.className = type;
+      statusDiv.textContent = message;
+    }
 
     // Carregar dados iniciais ao abrir a página
     window.onload = loadInitialData;
