@@ -1,460 +1,711 @@
-const PLANILHA_ID = "1QOwNnUCq_iBnQSgyJDBHh8lev7SAYnZciJNggcGktEM";
-
-/**
- * Serve o HTML quando acessado diretamente
- */
-function doGet(e) {
-  // Se for uma requisição de API
-  if (e.parameter && e.parameter.action) {
-    return handleApiRequest(e);
-  }
-  
-  // Senão, servir o HTML normalmente
-  return HtmlService.createHtmlOutputFromFile('index')
-    .setTitle('Conselho Armelindo Tonon')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-}
-
-/**
- * Função para receber dados via POST
- */
-function doPost(e) {
-  try {
-    const dados = JSON.parse(e.postData.contents);
-    
-    if (dados.acao === 'salvarRegistro') {
-      const resultado = salvarRegistro(dados);
-      return ContentService.createTextOutput(JSON.stringify(resultado))
-        .setMimeType(ContentService.MimeType.JSON);
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conselho Armelindo Tonon</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
     }
-    
-    return ContentService.createTextOutput(JSON.stringify({
-      success: false,
-      error: 'Ação não reconhecida'
-    })).setMimeType(ContentService.MimeType.JSON);
-    
-  } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({
-      success: false,
-      error: error.message
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
 
-/**
- * Manipula requisições da API
- */
-function handleApiRequest(e) {
-  const action = e.parameter.action;
-  
-  try {
-    switch(action) {
-      case 'carregarDadosIniciais':
-        return carregarDadosIniciais();
-      case 'getProfessoresPorTurma':
-        const professores = getProfessoresPorTurma(e.parameter.turma);
-        return ContentService.createTextOutput(JSON.stringify(professores))
-          .setMimeType(ContentService.MimeType.JSON);
-      case 'getAlunosPorTurma':
-        const alunos = getAlunosPorTurma(e.parameter.turma);
-        return ContentService.createTextOutput(JSON.stringify(alunos))
-          .setMimeType(ContentService.MimeType.JSON);
-      case 'getTodosRegistros':
-        const registros = getTodosRegistros();
-        return ContentService.createTextOutput(JSON.stringify(registros))
-          .setMimeType(ContentService.MimeType.JSON);
-      case 'getTurmas':
-        const turmas = getTurmas();
-        return ContentService.createTextOutput(JSON.stringify(turmas))
-          .setMimeType(ContentService.MimeType.JSON);
-      default:
-        return ContentService.createTextOutput(JSON.stringify({
-          success: false,
-          error: 'Ação não reconhecida: ' + action
-        })).setMimeType(ContentService.MimeType.JSON);
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      color: #333;
     }
-  } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({
-      success: false,
-      error: error.message
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
 
-/**
- * Inicializa a planilha com todas as abas necessárias
- */
-function inicializarPlanilha() {
-  try {
-    const ss = SpreadsheetApp.openById(PLANILHA_ID);
-    
-    // Configuração das abas
-    const abasConfig = [
-      {
-        nome: 'Registros',
-        cabecalhos: ['Data', 'Professor', 'Matéria', 'Turma', 'Aluno', 'Observações', 'Comportamento', 'Status'],
-        cor: '#1976D2'
-      },
-      {
-        nome: 'Dados Professores',
-        cabecalhos: ['Turma', 'Professor', 'Matéria', 'Email', 'Ativo'],
-        cor: '#388E3C'
-      },
-      {
-        nome: 'Lista de Alunos',
-        cabecalhos: ['Aluno', 'Turma', 'Data Nascimento', 'Responsável', 'Telefone'],
-        cor: '#7B1FA2'
-      },
-      {
-        nome: 'Turmas',
-        cabecalhos: ['Turma', 'Ano', 'Turno', 'Professor Responsável', 'Total Alunos'],
-        cor: '#D32F2F'
-      }
-    ];
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
 
-    abasConfig.forEach(config => {
-      let aba = ss.getSheetByName(config.nome);
-      
-      if (!aba) {
-        aba = ss.insertSheet(config.nome);
-        Logger.log(`✅ Aba ${config.nome} criada`);
+    .header {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 30px;
+      margin-bottom: 30px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      margin-bottom: 10px;
+    }
+
+    .logo i {
+      font-size: 2.5rem;
+      color: #4CAF50;
+    }
+
+    h1 {
+      color: #2c3e50;
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: #7f8c8d;
+      font-size: 1.2rem;
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 15px;
+      padding: 25px;
+      text-align: center;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+    }
+
+    .card i {
+      font-size: 2.5rem;
+      margin-bottom: 15px;
+    }
+
+    .card.registros i { color: #e74c3c; }
+    .card.professores i { color: #3498db; }
+    .card.alunos i { color: #2ecc71; }
+    .card.turmas i { color: #9b59b6; }
+
+    .card h3 {
+      font-size: 2rem;
+      margin-bottom: 5px;
+      color: #2c3e50;
+    }
+
+    .card p {
+      color: #7f8c8d;
+      font-weight: 500;
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+    }
+
+    @media (max-width: 768px) {
+      .content-grid {
+        grid-template-columns: 1fr;
       }
+    }
+
+    .section {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .section h2 {
+      color: #2c3e50;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section h2 i {
+      color: #4CAF50;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+
+    select, textarea, input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #ecf0f1;
+      border-radius: 10px;
+      font-size: 16px;
+      transition: border-color 0.3s ease;
+    }
+
+    select:focus, textarea:focus, input:focus {
+      outline: none;
+      border-color: #4CAF50;
+    }
+
+    textarea {
+      height: 100px;
+      resize: vertical;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #4CAF50, #45a049);
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      width: 100%;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+    }
+
+    .btn:disabled {
+      background: #cccccc;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .registros-list {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .registro-item {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-left: 4px solid #4CAF50;
+    }
+
+    .registro-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .registro-professor {
+      font-weight: 600;
+      color: #2c3e50;
+    }
+
+    .registro-data {
+      color: #7f8c8d;
+      font-size: 0.9rem;
+    }
+
+    .registro-aluno {
+      color: #e74c3c;
+      font-weight: 500;
+    }
+
+    .registro-observacoes {
+      color: #555;
+      margin-top: 5px;
+      font-size: 0.95rem;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-top: 5px;
+    }
+
+    .status.pendente {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .status.concluido {
+      background: #d1edff;
+      color: #0c5460;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #7f8c8d;
+    }
+
+    .loading i {
+      font-size: 2rem;
+      margin-bottom: 10px;
+    }
+
+    .alert {
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .alert.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .alert.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .nav-tab {
+      padding: 12px 24px;
+      background: #ecf0f1;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+
+    .nav-tab.active {
+      background: #4CAF50;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">
+        <i class="fas fa-school"></i>
+        <div>
+          <h1>Conselho Armelindo Tonon</h1>
+          <p class="subtitle">Sistema de Gestão Educacional</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dashboard Stats -->
+    <div class="dashboard">
+      <div class="card registros">
+        <i class="fas fa-clipboard-list"></i>
+        <h3 id="totalRegistros">0</h3>
+        <p>Registros</p>
+      </div>
+      <div class="card professores">
+        <i class="fas fa-chalkboard-teacher"></i>
+        <h3 id="totalProfessores">0</h3>
+        <p>Professores</p>
+      </div>
+      <div class="card alunos">
+        <i class="fas fa-user-graduate"></i>
+        <h3 id="totalAlunos">0</h3>
+        <p>Alunos</p>
+      </div>
+      <div class="card turmas">
+        <i class="fas fa-users"></i>
+        <h3 id="totalTurmas">0</h3>
+        <p>Turmas</p>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="showTab('novo-registro')">
+        <i class="fas fa-plus"></i> Novo Registro
+      </button>
+      <button class="nav-tab" onclick="showTab('historico')">
+        <i class="fas fa-history"></i> Histórico
+      </button>
+    </div>
+
+    <!-- Content Grid -->
+    <div class="content-grid">
+      <!-- Novo Registro -->
+      <div class="section" id="novo-registro-tab">
+        <h2><i class="fas fa-edit"></i> Novo Registro do Conselho</h2>
+        
+        <div id="alert"></div>
+        
+        <form id="registroForm">
+          <div class="form-group">
+            <label for="turma"><i class="fas fa-users"></i> Turma</label>
+            <select id="turma" name="turma" required onchange="carregarProfessoresEAlunos()">
+              <option value="">Selecione a turma</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="professor"><i class="fas fa-chalkboard-teacher"></i> Professor</label>
+            <select id="professor" name="professor" required>
+              <option value="">Selecione o professor</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="materia"><i class="fas fa-book"></i> Matéria</label>
+            <input type="text" id="materia" name="materia" required>
+          </div>
+
+          <div class="form-group">
+            <label for="aluno"><i class="fas fa-user-graduate"></i> Aluno</label>
+            <select id="aluno" name="aluno" required>
+              <option value="">Selecione o aluno</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="observacoes"><i class="fas fa-sticky-note"></i> Observações</label>
+            <textarea id="observacoes" name="observacoes" placeholder="Digite as observações sobre o aluno..." required></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="comportamento"><i class="fas fa-chart-line"></i> Comportamento</label>
+            <textarea id="comportamento" name="comportamento" placeholder="Observações sobre o comportamento em sala..." required></textarea>
+          </div>
+
+          <button type="submit" class="btn" id="btnEnviar">
+            <i class="fas fa-paper-plane"></i> Enviar Registro
+          </button>
+        </form>
+      </div>
+
+      <!-- Histórico -->
+      <div class="section" id="historico-tab" style="display: none;">
+        <h2><i class="fas fa-history"></i> Histórico de Registros</h2>
+        <div class="registros-list" id="listaRegistros">
+          <div class="loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Carregando registros...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Variáveis globais
+    let dadosDashboard = {};
+    let URL_WEB_APP = '';
+
+    // Inicialização
+    window.onload = function() {
+      // Obter a URL do Web App automaticamente
+      URL_WEB_APP = window.location.href.split('?')[0];
+      console.log('URL do Web App:', URL_WEB_APP);
       
-      // Configurar cabeçalhos
-      const rangeCabecalho = aba.getRange(1, 1, 1, config.cabecalhos.length);
-      rangeCabecalho.setValues([config.cabecalhos]);
-      rangeCabecalho.setBackground(config.cor)
-                   .setFontColor('white')
-                   .setFontWeight('bold')
-                   .setHorizontalAlignment('center');
+      inicializarSistema();
+      carregarDadosIniciais();
+    };
+
+    // Mostrar/ocultar abas
+    function showTab(tabName) {
+      // Esconder todas as tabs
+      document.getElementById('novo-registro-tab').style.display = 'none';
+      document.getElementById('historico-tab').style.display = 'none';
       
-      // Congelar cabeçalho
-      aba.setFrozenRows(1);
+      // Remover classe active de todos os botões
+      document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
       
-      // Ajustar colunas
-      aba.autoResizeColumns(1, config.cabecalhos.length);
+      // Mostrar tab selecionada
+      document.getElementById(tabName + '-tab').style.display = 'block';
+      
+      // Adicionar classe active ao botão clicado
+      event.target.classList.add('active');
+      
+      // Recarregar dados se for a tab de histórico
+      if (tabName === 'historico') {
+        carregarHistorico();
+      }
+    }
+
+    // Inicializar sistema
+    function inicializarSistema() {
+      mostrarAlert('Sistema carregando...', 'success');
+    }
+
+    // Carregar dados iniciais
+    async function carregarDadosIniciais() {
+      try {
+        mostrarLoading(true);
+        const response = await fetch(`${URL_WEB_APP}?action=carregarDadosIniciais`);
+        
+        if (!response.ok) {
+          throw new Error('Erro na resposta do servidor');
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          dadosDashboard = result.data;
+          atualizarDashboard();
+          preencherTurmas();
+          mostrarAlert('Sistema carregado com sucesso!', 'success');
+        } else {
+          mostrarAlert('Erro: ' + result.error, 'error');
+        }
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+        mostrarAlert('Erro de conexão. Usando dados de exemplo...', 'error');
+        carregarDadosFallback();
+      } finally {
+        mostrarLoading(false);
+      }
+    }
+
+    // Fallback caso a API falhe
+    function carregarDadosFallback() {
+      dadosDashboard = {
+        turmas: ['6ºA', '7ºB', '8ºC', '9ºD'],
+        estatisticas: {
+          totalRegistros: 0,
+          totalProfessores: 6,
+          totalAlunos: 6,
+          totalTurmas: 4
+        }
+      };
+      atualizarDashboard();
+      preencherTurmas();
+    }
+
+    // Preencher dropdown de turmas
+    function preencherTurmas() {
+      const selectTurma = document.getElementById('turma');
+      selectTurma.innerHTML = '<option value="">Selecione a turma</option>';
+      
+      if (dadosDashboard.turmas && dadosDashboard.turmas.length > 0) {
+        dadosDashboard.turmas.forEach(turma => {
+          const option = document.createElement('option');
+          option.value = turma;
+          option.textContent = turma;
+          selectTurma.appendChild(option);
+        });
+      }
+    }
+
+    // Atualizar estatísticas do dashboard
+    function atualizarDashboard() {
+      const stats = dadosDashboard.estatisticas;
+      if (stats) {
+        document.getElementById('totalRegistros').textContent = stats.totalRegistros || 0;
+        document.getElementById('totalProfessores').textContent = stats.totalProfessores || 0;
+        document.getElementById('totalAlunos').textContent = stats.totalAlunos || 0;
+        document.getElementById('totalTurmas').textContent = stats.totalTurmas || 0;
+      }
+    }
+
+    // Carregar professores e alunos baseado na turma
+    async function carregarProfessoresEAlunos() {
+      const turma = document.getElementById('turma').value;
+      
+      if (!turma) return;
+
+      // Carregar professores
+      try {
+        const response = await fetch(`${URL_WEB_APP}?action=getProfessoresPorTurma&turma=${encodeURIComponent(turma)}`);
+        const result = await response.json();
+        
+        if (result.success) {
+          const select = document.getElementById('professor');
+          select.innerHTML = '<option value="">Selecione o professor</option>';
+          result.data.forEach(prof => {
+            const option = document.createElement('option');
+            option.value = prof.professor;
+            option.textContent = `${prof.professor} - ${prof.materia}`;
+            select.appendChild(option);
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao carregar professores:', error);
+      }
+
+      // Carregar alunos
+      try {
+        const response = await fetch(`${URL_WEB_APP}?action=getAlunosPorTurma&turma=${encodeURIComponent(turma)}`);
+        const result = await response.json();
+        
+        if (result.success) {
+          const select = document.getElementById('aluno');
+          select.innerHTML = '<option value="">Selecione o aluno</option>';
+          result.data.forEach(aluno => {
+            const option = document.createElement('option');
+            option.value = aluno;
+            option.textContent = aluno;
+            select.appendChild(option);
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao carregar alunos:', error);
+      }
+    }
+
+    // Enviar formulário de registro
+    document.getElementById('registroForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const btnEnviar = document.getElementById('btnEnviar');
+      const btnTextoOriginal = btnEnviar.innerHTML;
+      
+      // Desabilitar botão e mostrar loading
+      btnEnviar.disabled = true;
+      btnEnviar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+      
+      const formData = new FormData(this);
+      const dados = {
+        acao: 'salvarRegistro',
+        turma: formData.get('turma'),
+        professor: formData.get('professor'),
+        materia: formData.get('materia'),
+        aluno: formData.get('aluno'),
+        observacoes: formData.get('observacoes'),
+        comportamento: formData.get('comportamento')
+      };
+
+      try {
+        const response = await fetch(URL_WEB_APP, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+          },
+          body: JSON.stringify(dados)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          mostrarAlert(result.message, 'success');
+          document.getElementById('registroForm').reset();
+          carregarDadosIniciais(); // Atualizar estatísticas
+        } else {
+          mostrarAlert('Erro: ' + result.error, 'error');
+        }
+      } catch (error) {
+        mostrarAlert('Erro ao enviar: ' + error.message, 'error');
+      } finally {
+        // Reabilitar botão
+        btnEnviar.disabled = false;
+        btnEnviar.innerHTML = btnTextoOriginal;
+      }
     });
 
-    // Adicionar dados de exemplo
-    adicionarDadosExemplo();
-    
-    SpreadsheetApp.flush();
-    Logger.log('🎉 Planilha inicializada com sucesso');
-    
-    return {
-      success: true,
-      message: 'Sistema configurado com sucesso!'
-    };
-    
-  } catch (error) {
-    Logger.log(`❌ Erro ao inicializar: ${error.message}`);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
+    // Carregar histórico de registros
+    async function carregarHistorico() {
+      const container = document.getElementById('listaRegistros');
+      container.innerHTML = `
+        <div class="loading">
+          <i class="fas fa-spinner fa-spin"></i>
+          <p>Carregando registros...</p>
+        </div>
+      `;
 
-/**
- * Adiciona dados de exemplo
- */
-function adicionarDadosExemplo() {
-  const ss = SpreadsheetApp.openById(PLANILHA_ID);
-  
-  // Dados de professores
-  const abaProfessores = ss.getSheetByName('Dados Professores');
-  if (abaProfessores.getLastRow() < 2) {
-    const professores = [
-      ['6ºA', 'Ana Silva', 'Matemática', 'ana.silva@escola.com', 'Sim'],
-      ['6ºA', 'Carlos Oliveira', 'Português', 'carlos.oliveira@escola.com', 'Sim'],
-      ['7ºB', 'Mariana Santos', 'Ciências', 'mariana.santos@escola.com', 'Sim'],
-      ['7ºB', 'Roberto Lima', 'História', 'roberto.lima@escola.com', 'Sim'],
-      ['8ºC', 'Juliana Costa', 'Geografia', 'juliana.costa@escola.com', 'Sim'],
-      ['9ºD', 'Paulo Mendes', 'Educação Física', 'paulo.mendes@escola.com', 'Sim']
-    ];
-    abaProfessores.getRange(2, 1, professores.length, 5).setValues(professores);
-  }
-  
-  // Dados de alunos
-  const abaAlunos = ss.getSheetByName('Lista de Alunos');
-  if (abaAlunos.getLastRow() < 2) {
-    const alunos = [
-      ['João Pedro Almeida', '6ºA', '15/03/2010', 'Maria Almeida', '(11) 99999-9999'],
-      ['Maria Eduarda Silva', '6ºA', '20/05/2010', 'José Silva', '(11) 88888-8888'],
-      ['Pedro Henrique Oliveira', '7ºB', '10/08/2009', 'Ana Oliveira', '(11) 77777-7777'],
-      ['Ana Carolina Santos', '7ºB', '25/11/2009', 'Carlos Santos', '(11) 66666-6666'],
-      ['Lucas Gabriel Costa', '8ºC', '30/01/2009', 'Fernanda Costa', '(11) 55555-5555'],
-      ['Juliana Pereira Lima', '9ºD', '12/07/2008', 'Roberto Lima', '(11) 44444-4444']
-    ];
-    abaAlunos.getRange(2, 1, alunos.length, 5).setValues(alunos);
-  }
-  
-  // Dados de turmas
-  const abaTurmas = ss.getSheetByName('Turmas');
-  if (abaTurmas.getLastRow() < 2) {
-    const turmas = [
-      ['6ºA', '2024', 'Manhã', 'Ana Silva', '25'],
-      ['7ºB', '2024', 'Tarde', 'Roberto Lima', '22'],
-      ['8ºC', '2024', 'Manhã', 'Juliana Costa', '28'],
-      ['9ºD', '2024', 'Tarde', 'Paulo Mendes', '24']
-    ];
-    abaTurmas.getRange(2, 1, turmas.length, 5).setValues(turmas);
-  }
-}
-
-/**
- * Busca dados para o dashboard
- */
-function getDadosDashboard() {
-  try {
-    const ss = SpreadsheetApp.openById(PLANILHA_ID);
-    
-    const abaRegistros = ss.getSheetByName('Registros');
-    const abaProfessores = ss.getSheetByName('Dados Professores');
-    const abaAlunos = ss.getSheetByName('Lista de Alunos');
-    const abaTurmas = ss.getSheetByName('Turmas');
-    
-    const totalRegistros = Math.max(abaRegistros.getLastRow() - 1, 0);
-    const totalProfessores = Math.max(abaProfessores.getLastRow() - 1, 0);
-    const totalAlunos = Math.max(abaAlunos.getLastRow() - 1, 0);
-    const totalTurmas = Math.max(abaTurmas.getLastRow() - 1, 0);
-    
-    return {
-      success: true,
-      data: {
-        estatisticas: {
-          totalRegistros,
-          totalProfessores,
-          totalAlunos,
-          totalTurmas
+      try {
+        const response = await fetch(`${URL_WEB_APP}?action=getTodosRegistros`);
+        const result = await response.json();
+        
+        if (result.success) {
+          exibirRegistros(result.data);
+        } else {
+          container.innerHTML = '<p class="error">Erro ao carregar registros: ' + result.error + '</p>';
         }
+      } catch (error) {
+        container.innerHTML = `<p class="error">Erro de conexão: ${error.message}</p>`;
       }
-    };
-    
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-/**
- * Busca professores por turma
- */
-function getProfessoresPorTurma(turma) {
-  try {
-    const ss = SpreadsheetApp.openById(PLANILHA_ID);
-    const aba = ss.getSheetByName('Dados Professores');
-    const lastRow = aba.getLastRow();
-    
-    if (lastRow < 2) {
-      return { success: true, data: [] };
     }
-    
-    const dados = aba.getRange(2, 1, lastRow - 1, 5).getValues();
-    
-    const professores = dados
-      .filter(row => row[0] === turma && row[4] === 'Sim')
-      .map(row => ({
-        professor: row[1],
-        materia: row[2],
-        email: row[3]
-      }));
-    
-    return {
-      success: true,
-      data: professores
-    };
-    
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
 
-/**
- * Busca alunos por turma
- */
-function getAlunosPorTurma(turma) {
-  try {
-    const ss = SpreadsheetApp.openById(PLANILHA_ID);
-    const aba = ss.getSheetByName('Lista de Alunos');
-    const lastRow = aba.getLastRow();
-    
-    if (lastRow < 2) {
-      return { success: true, data: [] };
+    // Exibir registros na lista
+    function exibirRegistros(registros) {
+      const container = document.getElementById('listaRegistros');
+      
+      if (!registros || registros.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #7f8c8d;">Nenhum registro encontrado</p>';
+        return;
+      }
+
+      container.innerHTML = registros.map(reg => `
+        <div class="registro-item">
+          <div class="registro-header">
+            <span class="registro-professor">${reg.professor || 'N/A'}</span>
+            <span class="registro-data">${formatarData(reg.data)}</span>
+          </div>
+          <div class="registro-aluno">
+            <i class="fas fa-user-graduate"></i> ${reg.aluno || 'N/A'} - ${reg.turma || 'N/A'}
+          </div>
+          <div class="registro-observacoes">
+            <strong>Observações:</strong> ${reg.observacoes || 'Nenhuma'}
+          </div>
+          <div class="registro-observacoes">
+            <strong>Comportamento:</strong> ${reg.comportamento || 'Nenhuma'}
+          </div>
+          <span class="status ${(reg.status || 'pendente').toLowerCase()}">${reg.status || 'Pendente'}</span>
+        </div>
+      `).join('');
     }
-    
-    const dados = aba.getRange(2, 1, lastRow - 1, 2).getValues();
-    
-    const alunos = dados
-      .filter(row => row[1] === turma)
-      .map(row => row[0]);
-    
-    return {
-      success: true,
-      data: alunos
-    };
-    
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
 
-/**
- * Salva um novo registro
- */
-function salvarRegistro(dados) {
-  try {
-    const ss = SpreadsheetApp.openById(PLANILHA_ID);
-    const aba = ss.getSheetByName('Registros');
-    
-    const novoRegistro = [
-      new Date(),
-      dados.professor,
-      dados.materia,
-      dados.turma,
-      dados.aluno,
-      dados.observacoes,
-      dados.comportamento,
-      'Pendente'
-    ];
-    
-    aba.appendRow(novoRegistro);
-    
+    // Mostrar alertas
+    function mostrarAlert(mensagem, tipo) {
+      const alertDiv = document.getElementById('alert');
+      alertDiv.innerHTML = `
+        <div class="alert ${tipo}">
+          <i class="fas fa-${tipo === 'success' ? 'check' : 'exclamation'}-circle"></i>
+          ${mensagem}
+        </div>
+      `;
+      
+      setTimeout(() => {
+        alertDiv.innerHTML = '';
+      }, 5000);
+    }
+
+    // Mostrar/ocultar loading
+    function mostrarLoading(mostrar) {
+      const btnEnviar = document.getElementById('btnEnviar');
+      if (btnEnviar) {
+        btnEnviar.disabled = mostrar;
+        btnEnviar.innerHTML = mostrar ? 
+          '<i class="fas fa-spinner fa-spin"></i> Carregando...' : 
+          '<i class="fas fa-paper-plane"></i> Enviar Registro';
+      }
+    }
+
     // Formatar data
-    const ultimaLinha = aba.getLastRow();
-    aba.getRange(ultimaLinha, 1).setNumberFormat('dd/MM/yyyy HH:mm');
-    
-    return {
-      success: true,
-      message: '✅ Registro salvo com sucesso!'
-    };
-    
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-/**
- * Busca todos os registros
- */
-function getTodosRegistros() {
-  try {
-    const ss = SpreadsheetApp.openById(PLANILHA_ID);
-    const aba = ss.getSheetByName('Registros');
-    const lastRow = aba.getLastRow();
-    
-    if (lastRow < 2) {
-      return { success: true, data: [] };
-    }
-    
-    const dados = aba.getRange(2, 1, lastRow - 1, 8).getValues();
-    
-    const registros = dados.map(row => ({
-      data: row[0],
-      professor: row[1],
-      materia: row[2],
-      turma: row[3],
-      aluno: row[4],
-      observacoes: row[5],
-      comportamento: row[6],
-      status: row[7]
-    }));
-    
-    return {
-      success: true,
-      data: registros.reverse() // Mais recentes primeiro
-    };
-    
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-/**
- * Busca todas as turmas disponíveis
- */
-function getTurmas() {
-  try {
-    const ss = SpreadsheetApp.openById(PLANILHA_ID);
-    const aba = ss.getSheetByName('Turmas');
-    const lastRow = aba.getLastRow();
-    
-    if (lastRow < 2) {
-      return { success: true, data: ['6ºA', '7ºB', '8ºC', '9ºD'] };
-    }
-    
-    const dados = aba.getRange(2, 1, lastRow - 1, 1).getValues();
-    const turmas = dados.map(row => row[0]);
-    
-    return {
-      success: true,
-      data: turmas
-    };
-    
-  } catch (error) {
-    return {
-      success: false,
-      error: error.message
-    };
-  }
-}
-
-/**
- * Função especial para carregar dados iniciais
- */
-function carregarDadosIniciais() {
-  try {
-    const dashboard = getDadosDashboard();
-    const turmas = getTurmas();
-    
-    return ContentService.createTextOutput(JSON.stringify({
-      success: true,
-      data: {
-        turmas: turmas.data,
-        estatisticas: dashboard.data.estatisticas
+    function formatarData(dataString) {
+      try {
+        if (!dataString) return 'Data não disponível';
+        const data = new Date(dataString);
+        return isNaN(data.getTime()) ? dataString : 
+          data.toLocaleDateString('pt-BR') + ' ' + data.toLocaleTimeString('pt-BR');
+      } catch (e) {
+        return dataString;
       }
-    })).setMimeType(ContentService.MimeType.JSON);
-    
-  } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({
-      success: false,
-      error: error.message
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-/**
- * Testa a conexão com a planilha
- */
-function testarConexao() {
-  try {
-    const ss = SpreadsheetApp.openById(PLANILHA_ID);
-    const abas = ss.getSheets().map(sheet => sheet.getName());
-    
-    return {
-      success: true,
-      message: '✅ Conexão estabelecida com sucesso!',
-      abas: abas
-    };
-    
-  } catch (error) {
-    return {
-      success: false,
-      error: '❌ Erro na conexão: ' + error.message
-    };
-  }
-}
+    }
+  </script>
+</body>
+</html>
