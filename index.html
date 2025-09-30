@@ -3,221 +3,167 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Relatório para o Conselho de Classe</title>
+  <title>Conselho de Classe</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 800px;
-      margin: 20px auto;
-      padding: 20px;
-      background-color: #f4f4f4;
-    }
-    h1 {
-      text-align: center;
-      color: #333;
-    }
-    form {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    }
-    label {
-      display: block;
-      margin: 10px 0 5px;
-      font-weight: bold;
-    }
-    select, textarea, input[type="submit"] {
-      width: 100%;
-      padding: 8px;
-      margin-bottom: 10px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    textarea {
-      height: 100px;
-    }
-    input[type="submit"] {
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    input[type="submit"]:hover {
-      background-color: #45a049;
-    }
-    #status {
-      margin-top: 10px;
-      font-weight: bold;
-      text-align: center;
-    }
-    .error {
-      color: red;
-    }
-    .success {
-      color: green;
-    }
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; padding: 20px; }
+    h1 { text-align: center; }
+    label { display: block; margin: 10px 0 5px; }
+    select, textarea, button { width: 100%; padding: 8px; margin-bottom: 10px; }
+    textarea { height: 100px; }
+    button { background-color: #4CAF50; color: white; border: none; padding: 10px; cursor: pointer; }
+    button:hover { background-color: #45a049; }
+    #status { margin-top: 10px; color: green; }
+    .error { color: red; }
   </style>
 </head>
 <body>
-  <h1>Relatório para o Conselho de Classe - SEMED SGO 1.0.0</h1>
-  <form id="relatorioForm">
+  <h1>Formulário de Conselho de Classe</h1>
+  <form id="conselhoForm">
     <label for="turma">Turma:</label>
     <select id="turma" name="turma" required>
-      <option value="">-- Selecione a Turma --</option>
+      <option value="">Selecione uma turma</option>
     </select>
 
-    <label for="professor">Professor(a):</label>
+    <label for="professor">Professor:</label>
     <select id="professor" name="professor" required>
-      <option value="">-- Selecione o Professor --</option>
+      <option value="">Selecione um professor</option>
     </select>
 
     <label for="materia">Matéria:</label>
     <select id="materia" name="materia" required>
-      <option value="">-- Selecione a Matéria --</option>
+      <option value="">Selecione uma matéria</option>
     </select>
 
-    <label for="aluno">Aluno(a) Focado (Selecione na Lista):</label>
+    <label for="aluno">Aluno:</label>
     <select id="aluno" name="aluno" required>
-      <option value="">-- Selecione o Aluno --</option>
+      <option value="">Selecione um aluno</option>
     </select>
 
-    <label for="observacoes">Observações sobre o Aluno:</label>
-    <textarea id="observacoes" name="observacoes" placeholder="Digite as observações sobre o aluno"></textarea>
+    <label for="observacoes">Observações:</label>
+    <textarea id="observacoes" name="observacoes" required></textarea>
 
-    <label for="comportamento">Observação do Comportamento em Sala:</label>
-    <textarea id="comportamento" name="comportamento" placeholder="Digite as observações sobre o comportamento"></textarea>
+    <label for="comportamento">Comportamento:</label>
+    <select id="comportamento" name="comportamento" required>
+      <option value="">Selecione o comportamento</option>
+      <option value="Comportamento exemplar">Comportamento exemplar</option>
+      <option value="Comportamento satisfatório">Comportamento satisfatório</option>
+      <option value="Comportamento a melhorar">Comportamento a melhorar</option>
+    </select>
 
-    <input type="submit" value="Enviar Relatório para o Conselho">
+    <button type="submit">Enviar Relatório para o Conselho</button>
   </form>
   <div id="status"></div>
 
   <script>
-    // URL do próprio Google Apps Script
-    const APPS_SCRIPT_URL = '<?= ScriptApp.getService().getUrl() ?>';
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxkZsM8qdUzRPpdGgpi4ZwzjEe3R2Z1hlgSiWf_PY56Y9o_poaUWVmpOD6d020XBKzk_Q/exec'; // Substitua pelo URL correto após reimplantação
 
-    // Função para carregar dados iniciais
+    document.addEventListener('DOMContentLoaded', loadInitialData);
+    document.getElementById('conselhoForm').addEventListener('submit', submitForm);
+    document.getElementById('turma').addEventListener('change', updateProfessorAndMateria);
+
     async function loadInitialData() {
       try {
-        const response = await fetch(`${APPS_SCRIPT_URL}?action=loadInitialData`);
+        const response = await fetch(APPS_SCRIPT_URL);
         const result = await response.json();
-        
-        if (result.success) {
-          const { uniqueTurmas, listaAlunos, initialTurma, initialProfessor, initialMateria } = result.data;
-
-          // Preencher turmas
-          const turmaSelect = document.getElementById('turma');
-          uniqueTurmas.forEach(turma => {
-            const option = document.createElement('option');
-            option.value = turma;
-            option.textContent = turma;
-            turmaSelect.appendChild(option);
-          });
-
-          // Preencher alunos
-          const alunoSelect = document.getElementById('aluno');
-          listaAlunos.forEach(aluno => {
-            const option = document.createElement('option');
-            option.value = aluno;
-            option.textContent = aluno;
-            alunoSelect.appendChild(option);
-          });
-
-          // Pré-selecionar valores iniciais
-          if (initialTurma) {
-            turmaSelect.value = initialTurma;
-            await updateProfessores(initialTurma, initialProfessor, initialMateria);
-          }
-        } else {
-          showStatus('Erro ao carregar dados: ' + result.error, 'error');
+        if (!result.success) {
+          throw new Error(result.error || 'Erro ao carregar dados iniciais');
         }
+        const { uniqueTurmas, listaAlunos, initialTurma, initialProfessor, initialMateria } = result.data;
+
+        const turmaSelect = document.getElementById('turma');
+        uniqueTurmas.forEach(turma => {
+          const option = document.createElement('option');
+          option.value = turma;
+          option.textContent = turma;
+          turmaSelect.appendChild(option);
+        });
+
+        const alunoSelect = document.getElementById('aluno');
+        listaAlunos.forEach(aluno => {
+          const option = document.createElement('option');
+          option.value = aluno;
+          option.textContent = aluno;
+          alunoSelect.appendChild(option);
+        });
+
+        if (initialTurma) {
+          turmaSelect.value = initialTurma;
+          await updateProfessorAndMateria();
+          if (initialProfessor) document.getElementById('professor').value = initialProfessor;
+          if (initialMateria) document.getElementById('materia').value = initialMateria;
+        }
+
+        document.getElementById('status').textContent = 'Dados carregados com sucesso!';
       } catch (error) {
-        showStatus('Erro ao carregar dados: ' + error.message, 'error');
+        document.getElementById('status').textContent = 'Erro: ' + error.message;
+        document.getElementById('status').classList.add('error');
       }
     }
 
-    // Função para atualizar professores
-    async function updateProfessores(turma, initialProfessor = '', initialMateria = '') {
+    async function updateProfessorAndMateria() {
+      const turma = document.getElementById('turma').value;
+      if (!turma) return;
+
       try {
         const response = await fetch(`${APPS_SCRIPT_URL}?action=getFilteredProfessores&turma=${encodeURIComponent(turma)}`);
         const result = await response.json();
-        
-        if (result.success) {
-          const professorSelect = document.getElementById('professor');
-          const materiaSelect = document.getElementById('materia');
-          
-          professorSelect.innerHTML = '<option value="">-- Selecione o Professor --</option>';
-          materiaSelect.innerHTML = '<option value="">-- Selecione a Matéria --</option>';
-
-          result.data.forEach(prof => {
-            const profOption = document.createElement('option');
-            profOption.value = prof.professor;
-            profOption.textContent = prof.professor;
-            professorSelect.appendChild(profOption);
-
-            const matOption = document.createElement('option');
-            matOption.value = prof.materia;
-            matOption.textContent = prof.materia;
-            materiaSelect.appendChild(matOption);
-          });
-
-          if (initialProfessor && initialMateria) {
-            professorSelect.value = initialProfessor;
-            materiaSelect.value = initialMateria;
-          }
-        } else {
-          showStatus('Erro ao carregar professores: ' + result.error, 'error');
+        if (!result.success) {
+          throw new Error(result.error || 'Erro ao carregar professores');
         }
+
+        const professorSelect = document.getElementById('professor');
+        const materiaSelect = document.getElementById('materia');
+        professorSelect.innerHTML = '<option value="">Selecione um professor</option>';
+        materiaSelect.innerHTML = '<option value="">Selecione uma matéria</option>';
+
+        result.data.forEach(({ professor, materia }) => {
+          const professorOption = document.createElement('option');
+          professorOption.value = professor;
+          professorOption.textContent = professor;
+          professorSelect.appendChild(professorOption);
+
+          const materiaOption = document.createElement('option');
+          materiaOption.value = materia;
+          materiaOption.textContent = materia;
+          materiaSelect.appendChild(materiaOption);
+        });
       } catch (error) {
-        showStatus('Erro ao carregar professores: ' + error.message, 'error');
+        document.getElementById('status').textContent = 'Erro: ' + error.message;
+        document.getElementById('status').classList.add('error');
       }
     }
 
-    // Evento para atualizar professores quando a turma mudar
-    document.getElementById('turma').addEventListener('change', function() {
-      updateProfessores(this.value);
-    });
-
-    // Enviar formulário
-    document.getElementById('relatorioForm').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      const formData = new FormData(this);
-      const data = {
-        turma: formData.get('turma'),
-        professor: formData.get('professor'),
-        materia: formData.get('materia'),
-        aluno: formData.get('aluno'),
-        observacoes: formData.get('observacoes'),
-        comportamento: formData.get('comportamento')
+    async function submitForm(event) {
+      event.preventDefault();
+      const formData = {
+        turma: document.getElementById('turma').value,
+        professor: document.getElementById('professor').value,
+        materia: document.getElementById('materia').value,
+        aluno: document.getElementById('aluno').value,
+        observacoes: document.getElementById('observacoes').value,
+        comportamento: document.getElementById('comportamento').value
       };
 
       try {
         const response = await fetch(APPS_SCRIPT_URL, {
           method: 'POST',
-          body: JSON.stringify(data)
+          body: JSON.stringify(formData),
+          headers: { 'Content-Type': 'application/json' }
         });
-        
         const result = await response.json();
-        if (result.success) {
-          showStatus(result.message, 'success');
-          this.reset();
-        } else {
-          showStatus('Erro: ' + result.error, 'error');
+        if (!result.success) {
+          throw new Error(result.error || 'Erro ao enviar relatório');
         }
+        document.getElementById('status').textContent = result.message;
+        document.getElementById('status').classList.remove('error');
+        document.getElementById('conselhoForm').reset();
+        document.getElementById('professor').innerHTML = '<option value="">Selecione um professor</option>';
+        document.getElementById('materia').innerHTML = '<option value="">Selecione uma matéria</option>';
       } catch (error) {
-        showStatus('Erro ao enviar: ' + error.message, 'error');
+        document.getElementById('status').textContent = 'Erro: ' + error.message;
+        document.getElementById('status').classList.add('error');
       }
-    });
-
-    // Função auxiliar para mostrar status
-    function showStatus(message, type) {
-      const statusDiv = document.getElementById('status');
-      statusDiv.className = type;
-      statusDiv.textContent = message;
     }
-
-    // Carregar dados iniciais ao abrir a página
-    window.onload = loadInitialData;
   </script>
 </body>
 </html>
