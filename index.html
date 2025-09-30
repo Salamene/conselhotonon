@@ -410,16 +410,15 @@
   </div>
 
   <script>
+    // URL FIXA do seu Web App do Google Apps Script
+    const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycbxkZsM8qdUzRPpdGgpi4ZwzjEe3R2Z1hlgSiWf_PY56Y9o_poaUWVmpOD6d020XBKzk_Q/exec';
+    
     // Variáveis globais
     let dadosDashboard = {};
-    let URL_WEB_APP = '';
 
     // Inicialização
     window.onload = function() {
-      // Obter a URL do Web App automaticamente
-      URL_WEB_APP = window.location.href.split('?')[0];
       console.log('URL do Web App:', URL_WEB_APP);
-      
       inicializarSistema();
       carregarDadosIniciais();
     };
@@ -459,7 +458,7 @@
         const response = await fetch(`${URL_WEB_APP}?action=carregarDadosIniciais`);
         
         if (!response.ok) {
-          throw new Error('Erro na resposta do servidor');
+          throw new Error('Erro na resposta do servidor: ' + response.status);
         }
         
         const result = await response.json();
@@ -531,6 +530,9 @@
       // Carregar professores
       try {
         const response = await fetch(`${URL_WEB_APP}?action=getProfessoresPorTurma&turma=${encodeURIComponent(turma)}`);
+        
+        if (!response.ok) throw new Error('Erro HTTP: ' + response.status);
+        
         const result = await response.json();
         
         if (result.success) {
@@ -550,6 +552,9 @@
       // Carregar alunos
       try {
         const response = await fetch(`${URL_WEB_APP}?action=getAlunosPorTurma&turma=${encodeURIComponent(turma)}`);
+        
+        if (!response.ok) throw new Error('Erro HTTP: ' + response.status);
+        
         const result = await response.json();
         
         if (result.success) {
@@ -628,6 +633,9 @@
 
       try {
         const response = await fetch(`${URL_WEB_APP}?action=getTodosRegistros`);
+        
+        if (!response.ok) throw new Error('Erro HTTP: ' + response.status);
+        
         const result = await response.json();
         
         if (result.success) {
