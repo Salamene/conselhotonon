@@ -130,7 +130,7 @@
           // Pré-selecionar valores iniciais
           if (initialTurma) {
             turmaSelect.value = initialTurma;
-            updateProfessores(initialTurma, initialProfessor, initialMateria);
+            await updateProfessores(initialTurma, initialProfessor, initialMateria);
           }
         } else {
           document.getElementById('status').className = 'error';
