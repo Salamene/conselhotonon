@@ -348,10 +348,10 @@
 
     <!-- Navigation Tabs -->
     <div class="nav-tabs">
-      <button class="nav-tab active" onclick="showTab(\'novo-registro\', this)">
+      <button class="nav-tab active" onclick="showTab('novo-registro', this)">
         <i class="fas fa-plus"></i> Novo Registro
       </button>
-      <button class="nav-tab" onclick="showTab(\'historico\', this)">       <i class="fas fa-history"></i> Histórico
+      <button class="nav-tab" onclick="showTab('historico', this)">       <i class="fas fa-history"></i> Histórico
       </button>
     </div>
 
@@ -464,7 +464,7 @@
       document.getElementById(tabName + '-tab').style.display = 'block';
       
       // Adicionar classe active ao botão clicado      if (element) {
-        element.classList.add(\'active\');
+        element.classList.add('active');
       }      
       // Recarregar dados se for a tab de histórico
       if (tabName === 'historico') {
