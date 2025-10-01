@@ -347,7 +347,8 @@
     </div>
 
     <!-- Navigation Tabs -->
-    <div class="nav-tabs"      <button class="nav-tab active" onclick="showTab(\'novo-registro\', this)">
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="showTab(\'novo-registro\', this)">
         <i class="fas fa-plus"></i> Novo Registro
       </button>
       <button class="nav-tab" onclick="showTab(\'historico\', this)">       <i class="fas fa-history"></i> Histórico
@@ -418,12 +419,33 @@
     </div>
   </div>
 
+  <!-- Global Loading Overlay -->
+  <div id="loadingOverlay" style="
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 9999;
+  ">
+    <i class="fas fa-spinner fa-spin" style="font-size: 3rem; margin-bottom: 15px;"></i>
+    <p style="font-size: 1.2rem;">Carregando...</p>
+  </div>
+
   <script>
     // Variáveis globais
     let dadosDashboard = {};
 
     // Inicialização
     window.onload = function() {
+      mostrarLoading(true); // Exibir loading ao iniciar
       carregarDadosIniciais();
     };
 
@@ -479,7 +501,7 @@
     // Fallback caso a API falhe
     function carregarDadosFallback() {
       dadosDashboard = {
-        turmas: ['6ºA', '7ºB', '8ºC', '9ºD'],
+        turmas: [\'6ºA\', \'7ºB\', \'8ºC\', \'9ºD\'],
         estatisticas: {
           totalRegistros: 0,
           totalProfessores: 6,
@@ -489,6 +511,7 @@
       };
       atualizarDashboard();
       preencherTurmas();
+      mostrarLoading(false); // Desativar loading após fallback
     }
 
     // Preencher dropdown de turmas
@@ -711,14 +734,20 @@
 
     // Mostrar/ocultar loading
     function mostrarLoading(mostrar) {
-      const btnEnviar = document.getElementById('btnEnviar');
+      const btnEnviar = document.getElementById(\'btnEnviar\');
+      const loadingOverlay = document.getElementById(\'loadingOverlay\');
+
       if (btnEnviar) {
         btnEnviar.disabled = mostrar;
         if (mostrar) {
-          btnEnviar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Carregando...';
+          btnEnviar.innerHTML = \'<i class="fas fa-spinner fa-spin"></i> Carregando...\';
         } else {
-          btnEnviar.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar Registro';
+          btnEnviar.innerHTML = \'<i class="fas fa-paper-plane"></i> Enviar Registro\';
         }
+      }
+
+      if (loadingOverlay) {
+        loadingOverlay.style.display = mostrar ? \'flex\' : \'none\';
       }
     }
 
