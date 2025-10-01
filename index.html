@@ -684,11 +684,13 @@
           } else {
             mostrarAlert('Erro: ' + result.error, 'error');
           }
+          // Reabilitar o botão e restaurar o texto original
+          btnEnviar.disabled = false;
+          btnEnviar.innerHTML = btnTextoOriginal;
         })
         .withFailureHandler(function(error) {
           mostrarAlert('Erro ao enviar: ' + error.message, 'error');
-        })
-        .withCompleteHandler(function() {
+          // Reabilitar o botão e restaurar o texto original em caso de falha
           btnEnviar.disabled = false;
           btnEnviar.innerHTML = btnTextoOriginal;
         })
@@ -715,9 +717,6 @@
         })
         .withFailureHandler(function(error) {
           container.innerHTML = `<p class="error">Erro de conexão: ${error.message}</p>`;
-        })
-        .withCompleteHandler(function() {
-          mostrarLoading(false);
         })
         .getTodosRegistros();
     }
