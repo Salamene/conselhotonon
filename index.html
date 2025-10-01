@@ -439,7 +439,7 @@
     <p style="font-size: 1.2rem;">Carregando...</p>
   </div>
 
-  <script>
+<script>
     // Variáveis globais
     let dadosDashboard = {};
 
@@ -463,9 +463,10 @@
       // Mostrar tab selecionada
       document.getElementById(tabName + '-tab').style.display = 'block';
       
-      // Adicionar classe active ao botão clicado      if (element) {
+      // Adicionar classe active ao botão clicado
+      if (element) {
         element.classList.add('active');
-      }      
+      }
       // Recarregar dados se for a tab de histórico
       if (tabName === 'historico') {
         carregarHistorico();
@@ -473,35 +474,61 @@
     }
 
     // Carregar dados iniciais
+    let pendingInitialCalls = 0;
+
     function carregarDadosIniciais() {
       mostrarLoading(true);
-      
+      pendingInitialCalls = 2; // Duas chamadas assíncronas: getDadosDashboard e getTurmas
+
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.success) {
-            dadosDashboard = result.data;
+            dadosDashboard.estatisticas = result.data.estatisticas;
             atualizarDashboard();
-            preencherTurmas();
             mostrarAlert('Sistema carregado com sucesso!', 'success');
           } else {
             mostrarAlert('Erro: ' + result.error, 'error');
           }
+          checkAllInitialCallsComplete();
         })
         .withFailureHandler(function(error) {
-          console.error(\'Erro ao carregar dados:\', error);
-          mostrarAlert(\'Erro de conexão. Usando dados de exemplo...\', \'error\');
+          console.error('Erro ao carregar dados do dashboard:', error);
+          mostrarAlert('Erro de conexão ao carregar dashboard. Usando dados de exemplo...', 'error');
           carregarDadosFallback();
+          checkAllInitialCallsComplete();
         })
-        .withCompleteHandler(function() {
-          mostrarLoading(false);
+        .getDadosDashboard();
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            dadosDashboard.turmas = result.data;
+            preencherTurmas();
+          } else {
+            mostrarAlert('Erro ao carregar turmas: ' + result.error, 'error');
+          }
+          checkAllInitialCallsComplete();
         })
-        .carregarDadosIniciais();
+        .withFailureHandler(function(error) {
+          console.error('Erro ao carregar turmas:', error);
+          mostrarAlert('Erro de conexão ao carregar turmas. Usando dados de exemplo...', 'error');
+          carregarDadosFallback();
+          checkAllInitialCallsComplete();
+        })
+        .getTurmas();
+    }
+
+    function checkAllInitialCallsComplete() {
+      pendingInitialCalls--;
+      if (pendingInitialCalls <= 0) {
+        mostrarLoading(false);
+      }
     }
 
     // Fallback caso a API falhe
     function carregarDadosFallback() {
       dadosDashboard = {
-        turmas: [\'6ºA\', \'7ºB\', \'8ºC\', \'9ºD\'],
+        turmas: ['6ºA', '7ºB', '8ºC', '9ºD'],
         estatisticas: {
           totalRegistros: 0,
           totalProfessores: 6,
@@ -540,7 +567,7 @@
       }
     }
 
-    // Carregar professores e alunos baseado na turma - CORRIGIDO
+    // Carregar professores e alunos baseado na turma
     function carregarProfessoresEAlunos() {
       const turma = document.getElementById('turma').value;
       
@@ -551,6 +578,15 @@
         document.getElementById('aluno').innerHTML = '<option value="">Selecione o aluno</option>';
         return;
       }
+
+      mostrarLoading(true);
+      let calls = 2;
+      const checkDone = () => {
+        calls--;
+        if (calls === 0) {
+          mostrarLoading(false);
+        }
+      };
 
       // Carregar professores
       google.script.run
@@ -570,26 +606,25 @@
             });
             
             // Adicionar evento para preencher matéria automaticamente
-            select.addEventListener('change', function() {
+            select.onchange = function() {
               const selectedOption = this.options[this.selectedIndex];
               if (selectedOption && selectedOption.value) {
                 document.getElementById('materia').value = selectedOption.getAttribute('data-materia') || '';
               } else {
                 document.getElementById('materia').value = '';
               }
-            });
+            };
             
           } else {
             document.getElementById('professor').innerHTML = '<option value="">Nenhum professor encontrado</option>';
             document.getElementById('materia').value = '';
           }
+          checkDone();
         })
         .withFailureHandler(function(error) {
-          console.error(\'Erro ao carregar professores:\', error);
-          document.getElementById(\'professor\').innerHTML = \'<option value="">Erro ao carregar</option>\';
-        })
-        .withCompleteHandler(function() {
-          mostrarLoading(false);
+          console.error('Erro ao carregar professores:', error);
+          document.getElementById('professor').innerHTML = '<option value="">Erro ao carregar</option>';
+          checkDone();
         })
         .getProfessoresPorTurma(turma);
 
@@ -608,13 +643,12 @@
           } else {
             document.getElementById('aluno').innerHTML = '<option value="">Nenhum aluno encontrado</option>';
           }
+          checkDone();
         })
         .withFailureHandler(function(error) {
-          console.error(\'Erro ao carregar alunos:\', error);
-          document.getElementById(\'aluno\').innerHTML = \'<option value="">Erro ao carregar</option>\';
-        })
-        .withCompleteHandler(function() {
-          mostrarLoading(false);
+          console.error('Erro ao carregar alunos:', error);
+          document.getElementById('aluno').innerHTML = '<option value="">Erro ao carregar</option>';
+          checkDone();
         })
         .getAlunosPorTurma(turma);
     }
@@ -652,7 +686,7 @@
           }
         })
         .withFailureHandler(function(error) {
-          mostrarAlert(\'Erro ao enviar: \' + error.message, \'error\');
+          mostrarAlert('Erro ao enviar: ' + error.message, 'error');
         })
         .withCompleteHandler(function() {
           btnEnviar.disabled = false;
@@ -712,7 +746,7 @@
           <div class="registro-observacoes">
             <strong>Comportamento:</strong> ${reg.comportamento || 'Nenhuma'}
           </div>
-          <span class="status ${(reg.status || 'pendente').toLowerCase()}">${reg.status || 'Pendente'}</span>
+          <span class="status ${(reg.status || 'pendente').toLowerCase()} ">${reg.status || 'Pendente'}</span>
         </div>
       `).join('');
     }
@@ -734,20 +768,9 @@
 
     // Mostrar/ocultar loading
     function mostrarLoading(mostrar) {
-      const btnEnviar = document.getElementById(\'btnEnviar\');
-      const loadingOverlay = document.getElementById(\'loadingOverlay\');
-
-      if (btnEnviar) {
-        btnEnviar.disabled = mostrar;
-        if (mostrar) {
-          btnEnviar.innerHTML = \'<i class="fas fa-spinner fa-spin"></i> Carregando...\';
-        } else {
-          btnEnviar.innerHTML = \'<i class="fas fa-paper-plane"></i> Enviar Registro\';
-        }
-      }
-
+      const loadingOverlay = document.getElementById('loadingOverlay');
       if (loadingOverlay) {
-        loadingOverlay.style.display = mostrar ? \'flex\' : \'none\';
+        loadingOverlay.style.display = mostrar ? 'flex' : 'none';
       }
     }
 
