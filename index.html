@@ -296,6 +296,17 @@
       background: #4CAF50;
       color: white;
     }
+
+    /* Estilos específicos para correções */
+    .materia-input {
+      cursor: text !important;
+      background-color: white !important;
+    }
+    
+    .materia-input:focus {
+      border-color: #4CAF50 !important;
+      box-shadow: 0 0 5px rgba(76, 175, 80, 0.3) !important;
+    }
   </style>
 </head>
 <body>
@@ -370,7 +381,7 @@
 
           <div class="form-group">
             <label for="materia"><i class="fas fa-book"></i> Matéria</label>
-            <input type="text" id="materia" name="materia" required>
+            <input type="text" id="materia" name="materia" class="materia-input" required placeholder="Digite a matéria ou selecione um professor para preenchimento automático">
           </div>
 
           <div class="form-group">
@@ -410,16 +421,11 @@
   </div>
 
   <script>
-    // URL FIXA do seu Web App do Google Apps Script
-    const URL_WEB_APP = 'https://script.google.com/macros/s/AKfycbxkZsM8qdUzRPpdGgpi4ZwzjEe3R2Z1hlgSiWf_PY56Y9o_poaUWVmpOD6d020XBKzk_Q/exec';
-    
     // Variáveis globais
     let dadosDashboard = {};
 
     // Inicialização
     window.onload = function() {
-      console.log('URL do Web App:', URL_WEB_APP);
-      inicializarSistema();
       carregarDadosIniciais();
     };
 
@@ -446,38 +452,27 @@
       }
     }
 
-    // Inicializar sistema
-    function inicializarSistema() {
-      mostrarAlert('Sistema carregando...', 'success');
-    }
-
     // Carregar dados iniciais
-    async function carregarDadosIniciais() {
-      try {
-        mostrarLoading(true);
-        const response = await fetch(`${URL_WEB_APP}?action=carregarDadosIniciais`);
-        
-        if (!response.ok) {
-          throw new Error('Erro na resposta do servidor: ' + response.status);
-        }
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          dadosDashboard = result.data;
-          atualizarDashboard();
-          preencherTurmas();
-          mostrarAlert('Sistema carregado com sucesso!', 'success');
-        } else {
-          mostrarAlert('Erro: ' + result.error, 'error');
-        }
-      } catch (error) {
-        console.error('Erro ao carregar dados:', error);
-        mostrarAlert('Erro de conexão. Usando dados de exemplo...', 'error');
-        carregarDadosFallback();
-      } finally {
-        mostrarLoading(false);
-      }
+    function carregarDadosIniciais() {
+      mostrarLoading(true);
+      
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            dadosDashboard = result.data;
+            atualizarDashboard();
+            preencherTurmas();
+            mostrarAlert('Sistema carregado com sucesso!', 'success');
+          } else {
+            mostrarAlert('Erro: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Erro ao carregar dados:', error);
+          mostrarAlert('Erro de conexão. Usando dados de exemplo...', 'error');
+          carregarDadosFallback();
+        })
+        .carregarDadosIniciais();
     }
 
     // Fallback caso a API falhe
@@ -521,59 +516,81 @@
       }
     }
 
-    // Carregar professores e alunos baseado na turma
-    async function carregarProfessoresEAlunos() {
+    // Carregar professores e alunos baseado na turma - CORRIGIDO
+    window.carregarProfessoresEAlunos = function() {
       const turma = document.getElementById('turma').value;
       
-      if (!turma) return;
+      if (!turma) {
+        // Limpar campos se não há turma selecionada
+        document.getElementById('professor').innerHTML = '<option value="">Selecione o professor</option>';
+        document.getElementById('materia').value = '';
+        document.getElementById('aluno').innerHTML = '<option value="">Selecione o aluno</option>';
+        return;
+      }
 
       // Carregar professores
-      try {
-        const response = await fetch(`${URL_WEB_APP}?action=getProfessoresPorTurma&turma=${encodeURIComponent(turma)}`);
-        
-        if (!response.ok) throw new Error('Erro HTTP: ' + response.status);
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          const select = document.getElementById('professor');
-          select.innerHTML = '<option value="">Selecione o professor</option>';
-          result.data.forEach(prof => {
-            const option = document.createElement('option');
-            option.value = prof.professor;
-            option.textContent = `${prof.professor} - ${prof.materia}`;
-            select.appendChild(option);
-          });
-        }
-      } catch (error) {
-        console.error('Erro ao carregar professores:', error);
-      }
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success && result.data.length > 0) {
+            const select = document.getElementById('professor');
+            select.innerHTML = '<option value="">Selecione o professor</option>';
+            
+            result.data.forEach(prof => {
+              const option = document.createElement('option');
+              option.value = prof.professor;
+              option.textContent = `${prof.professor} - ${prof.materia}`;
+              
+              // Armazenar a matéria como data attribute para preenchimento automático
+              option.setAttribute('data-materia', prof.materia);
+              select.appendChild(option);
+            });
+            
+            // Adicionar evento para preencher matéria automaticamente
+            select.addEventListener('change', function() {
+              const selectedOption = this.options[this.selectedIndex];
+              if (selectedOption && selectedOption.value) {
+                document.getElementById('materia').value = selectedOption.getAttribute('data-materia') || '';
+              } else {
+                document.getElementById('materia').value = '';
+              }
+            });
+            
+          } else {
+            document.getElementById('professor').innerHTML = '<option value="">Nenhum professor encontrado</option>';
+            document.getElementById('materia').value = '';
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Erro ao carregar professores:', error);
+          document.getElementById('professor').innerHTML = '<option value="">Erro ao carregar</option>';
+        })
+        .getProfessoresPorTurma(turma);
 
       // Carregar alunos
-      try {
-        const response = await fetch(`${URL_WEB_APP}?action=getAlunosPorTurma&turma=${encodeURIComponent(turma)}`);
-        
-        if (!response.ok) throw new Error('Erro HTTP: ' + response.status);
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          const select = document.getElementById('aluno');
-          select.innerHTML = '<option value="">Selecione o aluno</option>';
-          result.data.forEach(aluno => {
-            const option = document.createElement('option');
-            option.value = aluno;
-            option.textContent = aluno;
-            select.appendChild(option);
-          });
-        }
-      } catch (error) {
-        console.error('Erro ao carregar alunos:', error);
-      }
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success && result.data.length > 0) {
+            const select = document.getElementById('aluno');
+            select.innerHTML = '<option value="">Selecione o aluno</option>';
+            result.data.forEach(aluno => {
+              const option = document.createElement('option');
+              option.value = aluno;
+              option.textContent = aluno;
+              select.appendChild(option);
+            });
+          } else {
+            document.getElementById('aluno').innerHTML = '<option value="">Nenhum aluno encontrado</option>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          console.error('Erro ao carregar alunos:', error);
+          document.getElementById('aluno').innerHTML = '<option value="">Erro ao carregar</option>';
+        })
+        .getAlunosPorTurma(turma);
     }
 
     // Enviar formulário de registro
-    document.getElementById('registroForm').addEventListener('submit', async function(e) {
+    document.getElementById('registroForm').addEventListener('submit', function(e) {
       e.preventDefault();
       
       const btnEnviar = document.getElementById('btnEnviar');
@@ -594,35 +611,24 @@
         comportamento: formData.get('comportamento')
       };
 
-      try {
-        const response = await fetch(URL_WEB_APP, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'text/plain;charset=utf-8'
-          },
-          body: JSON.stringify(dados)
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          mostrarAlert(result.message, 'success');
-          document.getElementById('registroForm').reset();
-          carregarDadosIniciais(); // Atualizar estatísticas
-        } else {
-          mostrarAlert('Erro: ' + result.error, 'error');
-        }
-      } catch (error) {
-        mostrarAlert('Erro ao enviar: ' + error.message, 'error');
-      } finally {
-        // Reabilitar botão
-        btnEnviar.disabled = false;
-        btnEnviar.innerHTML = btnTextoOriginal;
-      }
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            mostrarAlert(result.message, 'success');
+            document.getElementById('registroForm').reset();
+            carregarDadosIniciais(); // Atualizar estatísticas
+          } else {
+            mostrarAlert('Erro: ' + result.error, 'error');
+          }
+        })
+        .withFailureHandler(function(error) {
+          mostrarAlert('Erro ao enviar: ' + error.message, 'error');
+        })
+        .salvarRegistro(dados);
     });
 
     // Carregar histórico de registros
-    async function carregarHistorico() {
+    function carregarHistorico() {
       const container = document.getElementById('listaRegistros');
       container.innerHTML = `
         <div class="loading">
@@ -631,21 +637,18 @@
         </div>
       `;
 
-      try {
-        const response = await fetch(`${URL_WEB_APP}?action=getTodosRegistros`);
-        
-        if (!response.ok) throw new Error('Erro HTTP: ' + response.status);
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          exibirRegistros(result.data);
-        } else {
-          container.innerHTML = '<p class="error">Erro ao carregar registros: ' + result.error + '</p>';
-        }
-      } catch (error) {
-        container.innerHTML = `<p class="error">Erro de conexão: ${error.message}</p>`;
-      }
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            exibirRegistros(result.data);
+          } else {
+            container.innerHTML = '<p class="error">Erro ao carregar registros: ' + result.error + '</p>';
+          }
+        })
+        .withFailureHandler(function(error) {
+          container.innerHTML = `<p class="error">Erro de conexão: ${error.message}</p>`;
+        })
+        .getTodosRegistros();
     }
 
     // Exibir registros na lista
@@ -697,9 +700,11 @@
       const btnEnviar = document.getElementById('btnEnviar');
       if (btnEnviar) {
         btnEnviar.disabled = mostrar;
-        btnEnviar.innerHTML = mostrar ? 
-          '<i class="fas fa-spinner fa-spin"></i> Carregando...' : 
-          '<i class="fas fa-paper-plane"></i> Enviar Registro';
+        if (mostrar) {
+          btnEnviar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Carregando...';
+        } else {
+          btnEnviar.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar Registro';
+        }
       }
     }
 
