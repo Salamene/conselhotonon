@@ -1,0 +1,431 @@
+const PLANILHA_ID = "1QOwNnUCq_iBnQSgyJDBHh8lev7SAYnZciJNggcGktEM";
+
+/**
+ * Serve o HTML quando acessado diretamente
+ */
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('index')
+    .setTitle('Conselho Armelindo Tonon')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/**
+ * Função para receber dados via POST
+ */
+function doPost(e) {
+  try {
+    const dados = JSON.parse(e.postData.contents);
+    
+    if (dados.acao === 'salvarRegistro') {
+      const resultado = salvarRegistro(dados);
+      return ContentService.createTextOutput(JSON.stringify(resultado))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: 'Ação não reconhecida'
+    })).setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: error.message
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Inicializa a planilha com todas as abas necessárias
+ */
+function inicializarPlanilha() {
+  try {
+    const ss = SpreadsheetApp.openById(PLANILHA_ID);
+    
+    // Configuração das abas
+    const abasConfig = [
+      {
+        nome: 'Registros',
+        cabecalhos: ['Data', 'Professor', 'Matéria', 'Turma', 'Aluno', 'Observações', 'Comportamento', 'Status'],
+        cor: '#1976D2'
+      },
+      {
+        nome: 'Dados Professores',
+        cabecalhos: ['Turma', 'Professor', 'Matéria', 'Email', 'Ativo'],
+        cor: '#388E3C'
+      },
+      {
+        nome: 'Lista de Alunos',
+        cabecalhos: ['Aluno', 'Turma', 'Data Nascimento', 'Responsável', 'Telefone'],
+        cor: '#7B1FA2'
+      },
+      {
+        nome: 'Turmas',
+        cabecalhos: ['Turma', 'Ano', 'Turno', 'Professor Responsável', 'Total Alunos'],
+        cor: '#D32F2F'
+      }
+    ];
+
+    abasConfig.forEach(config => {
+      let aba = ss.getSheetByName(config.nome);
+      
+      if (!aba) {
+        aba = ss.insertSheet(config.nome);
+        Logger.log(`✅ Aba ${config.nome} criada`);
+      }
+      
+      // Configurar cabeçalhos
+      const rangeCabecalho = aba.getRange(1, 1, 1, config.cabecalhos.length);
+      rangeCabecalho.setValues([config.cabecalhos]);
+      rangeCabecalho.setBackground(config.cor)
+                   .setFontColor('white')
+                   .setFontWeight('bold')
+                   .setHorizontalAlignment('center');
+      
+      // Congelar cabeçalho
+      aba.setFrozenRows(1);
+      
+      // Ajustar colunas
+      aba.autoResizeColumns(1, config.cabecalhos.length);
+    });
+
+    // Adicionar dados de exemplo
+    adicionarDadosExemplo();
+    
+    SpreadsheetApp.flush();
+    Logger.log('🎉 Planilha inicializada com sucesso');
+    
+    return {
+      success: true,
+      message: 'Sistema configurado com sucesso!'
+    };
+    
+  } catch (error) {
+    Logger.log(`❌ Erro ao inicializar: ${error.message}`);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Adiciona dados de exemplo
+ */
+function adicionarDadosExemplo() {
+  const ss = SpreadsheetApp.openById(PLANILHA_ID);
+  
+  // Dados de professores
+  const abaProfessores = ss.getSheetByName('Dados Professores');
+  if (abaProfessores.getLastRow() < 2) {
+    const professores = [
+      ['6ºA', 'Ana Silva', 'Matemática', 'ana.silva@escola.com', 'Sim'],
+      ['6ºA', 'Carlos Oliveira', 'Português', 'carlos.oliveira@escola.com', 'Sim'],
+      ['7ºB', 'Mariana Santos', 'Ciências', 'mariana.santos@escola.com', 'Sim'],
+      ['7ºB', 'Roberto Lima', 'História', 'roberto.lima@escola.com', 'Sim'],
+      ['8ºC', 'Juliana Costa', 'Geografia', 'juliana.costa@escola.com', 'Sim'],
+      ['9ºD', 'Paulo Mendes', 'Educação Física', 'paulo.mendes@escola.com', 'Sim']
+    ];
+    abaProfessores.getRange(2, 1, professores.length, 5).setValues(professores);
+  }
+  
+  // Dados de alunos
+  const abaAlunos = ss.getSheetByName('Lista de Alunos');
+  if (abaAlunos.getLastRow() < 2) {
+    const alunos = [
+      ['João Pedro Almeida', '6ºA', '15/03/2010', 'Maria Almeida', '(11) 99999-9999'],
+      ['Maria Eduarda Silva', '6ºA', '20/05/2010', 'José Silva', '(11) 88888-8888'],
+      ['Pedro Henrique Oliveira', '7ºB', '10/08/2009', 'Ana Oliveira', '(11) 77777-7777'],
+      ['Ana Carolina Santos', '7ºB', '25/11/2009', 'Carlos Santos', '(11) 66666-6666'],
+      ['Lucas Gabriel Costa', '8ºC', '30/01/2009', 'Fernanda Costa', '(11) 55555-5555'],
+      ['Juliana Pereira Lima', '9ºD', '12/07/2008', 'Roberto Lima', '(11) 44444-4444']
+    ];
+    abaAlunos.getRange(2, 1, alunos.length, 5).setValues(alunos);
+  }
+  
+  // Dados de turmas
+  const abaTurmas = ss.getSheetByName('Turmas');
+  if (abaTurmas.getLastRow() < 2) {
+    const turmas = [
+      ['6ºA', '2024', 'Manhã', 'Ana Silva', '25'],
+      ['7ºB', '2024', 'Tarde', 'Roberto Lima', '22'],
+      ['8ºC', '2024', 'Manhã', 'Juliana Costa', '28'],
+      ['9ºD', '2024', 'Tarde', 'Paulo Mendes', '24']
+    ];
+    abaTurmas.getRange(2, 1, turmas.length, 5).setValues(turmas);
+  }
+}
+
+/**
+ * Busca dados para o dashboard
+ */
+function getDadosDashboard() {
+  try {
+    Logger.log('Iniciando getDadosDashboard...');
+    const ss = SpreadsheetApp.openById(PLANILHA_ID);
+    
+    const abaRegistros = ss.getSheetByName('Registros');
+    const abaProfessores = ss.getSheetByName('Dados Professores');
+    const abaAlunos = ss.getSheetByName('Lista de Alunos');
+    const abaTurmas = ss.getSheetByName('Turmas');
+
+    if (!abaRegistros || !abaProfessores || !abaAlunos || !abaTurmas) {
+      throw new Error('Uma ou mais abas necessárias não foram encontradas.');
+    }
+    
+    const totalRegistros = Math.max(abaRegistros.getLastRow() - 1, 0);
+    const totalProfessores = Math.max(abaProfessores.getLastRow() - 1, 0);
+    const totalAlunos = Math.max(abaAlunos.getLastRow() - 1, 0);
+    const totalTurmas = Math.max(abaTurmas.getLastRow() - 1, 0);
+    
+    Logger.log('Dados do dashboard coletados com sucesso.');
+    return {
+      success: true,
+      data: {
+        estatisticas: {
+          totalRegistros,
+          totalProfessores,
+          totalAlunos,
+          totalTurmas
+        }
+      }
+    };
+    
+  } catch (error) {
+    Logger.log(`Erro em getDadosDashboard: ${error.message}`);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Busca professores por turma
+ */
+function getProfessoresPorTurma(turma) {
+  try {
+    const ss = SpreadsheetApp.openById(PLANILHA_ID);
+    const aba = ss.getSheetByName('Dados Professores');
+    const lastRow = aba.getLastRow();
+    
+    if (lastRow < 2) {
+      return { success: true, data: [] };
+    }
+    
+    const dados = aba.getRange(2, 1, lastRow - 1, 5).getValues();
+    
+    const professores = dados
+      .filter(row => row[0] === turma && row[4] === 'Sim')
+      .map(row => ({
+        professor: row[1],
+        materia: row[2],
+        email: row[3]
+      }));
+    
+    return {
+      success: true,
+      data: professores
+    };
+    
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Busca alunos por turma
+ */
+function getAlunosPorTurma(turma) {
+  try {
+    const ss = SpreadsheetApp.openById(PLANILHA_ID);
+    const aba = ss.getSheetByName('Lista de Alunos');
+    const lastRow = aba.getLastRow();
+    
+    if (lastRow < 2) {
+      return { success: true, data: [] };
+    }
+    
+    const dados = aba.getRange(2, 1, lastRow - 1, 2).getValues();
+    
+    const alunos = dados
+      .filter(row => row[1] === turma)
+      .map(row => row[0]);
+    
+    return {
+      success: true,
+      data: alunos
+    };
+    
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Salva um novo registro
+ */
+function salvarRegistro(dados) {
+  try {
+    const ss = SpreadsheetApp.openById(PLANILHA_ID);
+    const aba = ss.getSheetByName('Registros');
+    
+    const novoRegistro = [
+      new Date(),
+      dados.professor,
+      dados.materia,
+      dados.turma,
+      dados.aluno,
+      dados.observacoes,
+      dados.comportamento,
+      'Pendente'
+    ];
+    
+    aba.appendRow(novoRegistro);
+    
+    // Formatar data
+    const ultimaLinha = aba.getLastRow();
+    aba.getRange(ultimaLinha, 1).setNumberFormat('dd/MM/yyyy HH:mm');
+    
+    return {
+      success: true,
+      message: '✅ Registro salvo com sucesso!'
+    };
+    
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Busca todos os registros
+ */
+function getTodosRegistros() {
+  try {
+    const ss = SpreadsheetApp.openById(PLANILHA_ID);
+    const aba = ss.getSheetByName('Registros');
+    const lastRow = aba.getLastRow();
+    
+    if (lastRow < 2) {
+      return { success: true, data: [] };
+    }
+    
+    const dados = aba.getRange(2, 1, lastRow - 1, 8).getValues();
+    
+    const registros = dados.map(row => ({
+      data: row[0],
+      professor: row[1],
+      materia: row[2],
+      turma: row[3],
+      aluno: row[4],
+      observacoes: row[5],
+      comportamento: row[6],
+      status: row[7]
+    }));
+    
+    return {
+      success: true,
+      data: registros.reverse() // Mais recentes primeiro
+    };
+    
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Busca todas as turmas disponíveis
+ */
+function getTurmas() {
+  try {
+    const ss = SpreadsheetApp.openById(PLANILHA_ID);
+    const aba = ss.getSheetByName('Turmas');
+    const lastRow = aba.getLastRow();
+    
+    if (lastRow < 2) {
+      return { success: true, data: ['6ºA', '7ºB', '8ºC', '9ºD'] };
+    }
+    
+    const dados = aba.getRange(2, 1, lastRow - 1, 1).getValues();
+    const turmas = dados.map(row => row[0]);
+    
+    return {
+      success: true,
+      data: turmas
+    };
+    
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Funções chamadas pelo HTML via google.script.run
+ */
+function carregarDadosIniciais() {
+  try {
+    Logger.log("Iniciando carregarDadosIniciais...");
+    Logger.log("PLANILHA_ID: " + PLANILHA_ID);
+    const dashboard = getDadosDashboard();
+    const turmas = getTurmas();
+    
+    Logger.log('Dados do dashboard:', dashboard);
+    Logger.log('Dados das turmas:', turmas);
+
+    if (!dashboard.success || !turmas.success) {
+      throw new Error('Falha ao obter dados do dashboard ou turmas.');
+    }
+
+    return {
+      success: true,
+      data: {
+        turmas: turmas.data,
+        estatisticas: dashboard.data.estatisticas
+      }
+    };
+    
+  } catch (error) {
+    Logger.log(`Erro em carregarDadosIniciais: ${error.message}`);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Testa a conexão com a planilha
+ */
+function testarConexao() {
+  try {
+    const ss = SpreadsheetApp.openById(PLANILHA_ID);
+    const abas = ss.getSheets().map(sheet => sheet.getName());
+    
+    return {
+      success: true,
+      message: '✅ Conexão estabelecida com sucesso!',
+      abas: abas
+    };
+    
+  } catch (error) {
+    return {
+      success: false,
+      error: '❌ Erro na conexão: ' + error.message
+    };
+  }
+}
